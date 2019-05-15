@@ -1,0 +1,6 @@
+cffi==1.11.5
+numpy==1.15.4
+opencv-python==3.4.4.19
+scikit-image==0.14.1
+torch==0.4.1
+tqdm==4.28.1
