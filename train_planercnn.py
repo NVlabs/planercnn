@@ -115,14 +115,14 @@ def train(options):
             detection_pair = []
             dicts_pair = []
 
-            metadata = sample[30][0].cuda()                
+            camera = sample[30][0].cuda()                
             for indexOffset in [0, 13]:
                 images, image_metas, rpn_match, rpn_bbox, gt_class_ids, gt_boxes, gt_masks, gt_parameters, gt_depth, extrinsics, gt_plane, gt_segmentation, plane_indices = sample[indexOffset + 0].cuda(), sample[indexOffset + 1].numpy(), sample[indexOffset + 2].cuda(), sample[indexOffset + 3].cuda(), sample[indexOffset + 4].cuda(), sample[indexOffset + 5].cuda(), sample[indexOffset + 6].cuda(), sample[indexOffset + 7].cuda(), sample[indexOffset + 8].cuda(), sample[indexOffset + 9].cuda(), sample[indexOffset + 10].cuda(), sample[indexOffset + 11].cuda(), sample[indexOffset + 12].cuda()
 
                 if indexOffset == 13:
-                    input_pair.append({'image': images, 'depth': gt_depth, 'mask': gt_masks, 'bbox': gt_boxes, 'extrinsics': extrinsics, 'segmentation': gt_segmentation, 'plane': gt_plane, 'metadata': metadata})
+                    input_pair.append({'image': images, 'depth': gt_depth, 'mask': gt_masks, 'bbox': gt_boxes, 'extrinsics': extrinsics, 'segmentation': gt_segmentation, 'plane': gt_plane, 'camera': camera})
                     continue
-                rpn_class_logits, rpn_pred_bbox, target_class_ids, mrcnn_class_logits, target_deltas, mrcnn_bbox, target_mask, mrcnn_mask, target_parameters, mrcnn_parameters, detections, detection_masks, detection_gt_parameters, detection_gt_masks, rpn_rois, roi_features, roi_indices, feature_map, depth_np_pred = model.predict([images, image_metas, gt_class_ids, gt_boxes, gt_masks, gt_parameters, metadata], mode='training_detection', use_nms=2, use_refinement='refinement' in options.suffix, return_feature_map=True)
+                rpn_class_logits, rpn_pred_bbox, target_class_ids, mrcnn_class_logits, target_deltas, mrcnn_bbox, target_mask, mrcnn_mask, target_parameters, mrcnn_parameters, detections, detection_masks, detection_gt_parameters, detection_gt_masks, rpn_rois, roi_features, roi_indices, feature_map, depth_np_pred = model.predict([images, image_metas, gt_class_ids, gt_boxes, gt_masks, gt_parameters, camera], mode='training_detection', use_nms=2, use_refinement='refinement' in options.suffix, return_feature_map=True)
 
                 rpn_class_loss, rpn_bbox_loss, mrcnn_class_loss, mrcnn_bbox_loss, mrcnn_mask_loss, mrcnn_parameter_loss = compute_losses(config, rpn_match, rpn_bbox, rpn_class_logits, rpn_pred_bbox, target_class_ids, mrcnn_class_logits, target_deltas, mrcnn_bbox, target_mask, mrcnn_mask, target_parameters, mrcnn_parameters)
 
@@ -144,11 +144,11 @@ def train(options):
                     pass
 
                 if len(detections) > 0:
-                    detections, detection_masks = unmoldDetections(config, metadata, detections, detection_masks, depth_np_pred, normal_np_pred, debug=False)
+                    detections, detection_masks = unmoldDetections(config, camera, detections, detection_masks, depth_np_pred, normal_np_pred, debug=False)
                     if 'refine_only' in options.suffix:
                         detections, detection_masks = detections.detach(), detection_masks.detach()
                         pass
-                    XYZ_pred, detection_mask, plane_XYZ = calcXYZModule(config, metadata, detections, detection_masks, depth_np_pred, return_individual=True)
+                    XYZ_pred, detection_mask, plane_XYZ = calcXYZModule(config, camera, detections, detection_masks, depth_np_pred, return_individual=True)
                     detection_mask = detection_mask.unsqueeze(0)                        
                 else:
                     XYZ_pred = torch.zeros((3, config.IMAGE_MAX_DIM, config.IMAGE_MAX_DIM)).cuda()
@@ -157,7 +157,7 @@ def train(options):
                     pass
 
 
-                input_pair.append({'image': images, 'depth': gt_depth, 'mask': gt_masks, 'bbox': gt_boxes, 'extrinsics': extrinsics, 'segmentation': gt_segmentation, 'parameters': detection_gt_parameters, 'plane': gt_plane, 'metadata': metadata})
+                input_pair.append({'image': images, 'depth': gt_depth, 'mask': gt_masks, 'bbox': gt_boxes, 'extrinsics': extrinsics, 'segmentation': gt_segmentation, 'parameters': detection_gt_parameters, 'plane': gt_plane, 'camera': camera})
                 detection_pair.append({'XYZ': XYZ_pred, 'depth': XYZ_pred[1:2], 'mask': detection_mask, 'detection': detections, 'masks': detection_masks, 'feature_map': feature_map[0], 'plane_XYZ': plane_XYZ, 'depth_np': depth_np_pred})
 
                 if 'depth' in options.suffix:
@@ -182,7 +182,7 @@ def train(options):
                 pose = sample[26][0].cuda()
                 pose = torch.cat([pose[0:3], pose[3:6] * pose[6]], dim=0)
                 pose_gt = torch.cat([pose[0:1], -pose[2:3], pose[1:2], pose[3:4], -pose[5:6], pose[4:5]], dim=0).unsqueeze(0)
-                metadata = metadata.unsqueeze(0)
+                camera = camera.unsqueeze(0)
                 c = 0
                 detection_dict, input_dict = detection_pair[c], input_pair[c]                
                 detections = detection_dict['detection']
@@ -235,7 +235,7 @@ def train(options):
 
 
                 ## Run the refinement network
-                results = refine_model(image, image_2, metadata, masks_inp, detection_dict['detection'][:, 6:9], plane_depth, depth_np)
+                results = refine_model(image, image_2, camera, masks_inp, detection_dict['detection'][:, 6:9], plane_depth, depth_np)
 
                 plane_depth_loss = torch.zeros(1).cuda()            
                 depth_loss = torch.zeros(1).cuda()
@@ -280,11 +280,11 @@ def train(options):
                 detection_dict['masks'] = detection_masks
                 results[-1]['mask'] = masks_small
 
-                metadata = metadata.squeeze(0)
+                camera = camera.squeeze(0)
                 
                 if 'refine_after' in options.suffix:
                     ## Build the warping loss upon refined results
-                    XYZ_pred, detection_mask, plane_XYZ = calcXYZModule(config, metadata, detections, detection_masks, detection_dict['depth_np'], return_individual=True)
+                    XYZ_pred, detection_mask, plane_XYZ = calcXYZModule(config, camera, detections, detection_masks, detection_dict['depth_np'], return_individual=True)
                     detection_dict['XYZ'] = XYZ_pred
                     pass
             else:
@@ -298,7 +298,7 @@ def train(options):
 
                 detection_dict = detection_pair[1 - c]
                 neighbor_info = torch.cat([detection_dict['XYZ'], detection_dict['mask'], input_pair[1 - c]['image'][0]], dim=0).unsqueeze(0)
-                warped_info, valid_mask = warpModuleDepth(config, metadata, input_pair[c]['depth'][0], neighbor_info, input_pair[c]['extrinsics'][0], input_pair[1 - c]['extrinsics'][0], width=config.IMAGE_MAX_DIM, height=config.IMAGE_MIN_DIM)
+                warped_info, valid_mask = warpModuleDepth(config, camera, input_pair[c]['depth'][0], neighbor_info, input_pair[c]['extrinsics'][0], input_pair[1 - c]['extrinsics'][0], width=config.IMAGE_MAX_DIM, height=config.IMAGE_MIN_DIM)
 
                 XYZ = warped_info[:3].view((3, -1))
                 XYZ = torch.cat([XYZ, torch.ones((1, int(XYZ.shape[1]))).cuda()], dim=0)

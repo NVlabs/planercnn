@@ -1591,7 +1591,7 @@ class MaskRCNN(nn.Module):
         if not os.path.exists(self.log_dir):
             os.makedirs(self.log_dir)
 
-    def detect(self, images, metadata, mold_image=True, image_metas=None):
+    def detect(self, images, camera, mold_image=True, image_metas=None):
         """Runs the detection pipeline.
 
         images: List of images, potentially of different sizes.
@@ -1622,7 +1622,7 @@ class MaskRCNN(nn.Module):
         #molded_images = Variable(molded_images, volatile=True)
 
         ## Run object detection
-        detections, mrcnn_mask, depth_np = self.predict([molded_images, image_metas, metadata], mode='inference')
+        detections, mrcnn_mask, depth_np = self.predict([molded_images, image_metas, camera], mode='inference')
 
         if len(detections[0]) == 0:
             return [{'rois': [], 'class_ids': [], 'scores': [], 'masks': [], 'parameters': []}]

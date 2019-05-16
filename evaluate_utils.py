@@ -120,7 +120,7 @@ def evaluatePlanesTensor(input_dict, detection_dict, printInfo=False, use_gpu=Tr
 def evaluatePlaneDepth(config, input_dict, detection_dict, printInfo=False):
     masks_gt, depth_pred, depth_gt = input_dict['masks'], detection_dict['depth'], input_dict['depth']
     masks_cropped = masks_gt[:, 80:560]
-    ranges = config.getRanges(input_dict['metadata']).transpose(1, 2).transpose(0, 1)
+    ranges = config.getRanges(input_dict['camera']).transpose(1, 2).transpose(0, 1)
     plane_parameters_array = []
     for depth in [depth_pred, depth_gt]:
         XYZ = ranges * depth[:, 80:560]

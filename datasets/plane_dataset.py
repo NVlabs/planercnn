@@ -214,7 +214,7 @@ class PlaneDatasetSingle(Dataset):
             scene = self.scenes[sceneIndex]
 
             try:
-                image, planes, plane_info, segmentation, depth, metadata, extrinsics = scene[imageIndex]
+                image, planes, plane_info, segmentation, depth, camera, extrinsics = scene[imageIndex]
                 if len(planes) == 0:
                     index += 1                    
                     continue
@@ -309,7 +309,7 @@ class PlaneDatasetSingle(Dataset):
         depth = np.concatenate([np.zeros((80, 640)), depth, np.zeros((80, 640))], axis=0)
         segmentation = np.concatenate([np.full((80, 640), fill_value=-1, dtype=np.int32), segmentation, np.full((80, 640), fill_value=-1, dtype=np.int32)], axis=0)        
         
-        info = [image.transpose((2, 0, 1)).astype(np.float32), image_metas, rpn_match, rpn_bbox.astype(np.float32), gt_class_ids, gt_boxes.astype(np.float32), gt_masks.transpose((2, 0, 1)).astype(np.float32), gt_parameters, depth.astype(np.float32), segmentation, metadata.astype(np.float32)]
+        info = [image.transpose((2, 0, 1)).astype(np.float32), image_metas, rpn_match, rpn_bbox.astype(np.float32), gt_class_ids, gt_boxes.astype(np.float32), gt_masks.transpose((2, 0, 1)).astype(np.float32), gt_parameters, depth.astype(np.float32), segmentation, camera.astype(np.float32)]
         
         if self.loadNeighborImage:
             if imageIndex + self.options.frameGap < len(scene.imagePaths):
@@ -373,7 +373,7 @@ class PlaneDatasetSingle(Dataset):
                         pass
                     scene = self.scenes[sceneIndex]
 
-                    image, planes, plane_info, segmentation, depth, metadata, extrinsics = scene[imageIndex]
+                    image, planes, plane_info, segmentation, depth, camera, extrinsics = scene[imageIndex]
                     planes = planes[np.linalg.norm(planes, axis=-1) > 1e-4]
                     if len(planes) == 0:
                         continue

@@ -444,9 +444,9 @@ end_header
 
 
 ## The function to compute plane depths from plane parameters
-def calcPlaneDepths(planes, width, height, metadata, max_depth=10):
-    urange = (np.arange(width, dtype=np.float32).reshape(1, -1).repeat(height, 0) / (width + 1) * (metadata[4] + 1) - metadata[2]) / metadata[0]
-    vrange = (np.arange(height, dtype=np.float32).reshape(-1, 1).repeat(width, 1) / (height + 1) * (metadata[5] + 1) - metadata[3]) / metadata[1]
+def calcPlaneDepths(planes, width, height, camera, max_depth=10):
+    urange = (np.arange(width, dtype=np.float32).reshape(1, -1).repeat(height, 0) / (width + 1) * (camera[4] + 1) - camera[2]) / camera[0]
+    vrange = (np.arange(height, dtype=np.float32).reshape(-1, 1).repeat(width, 1) / (height + 1) * (camera[5] + 1) - camera[3]) / camera[1]
     ranges = np.stack([urange, np.ones(urange.shape), -vrange], axis=-1)
     
     planeOffsets = np.linalg.norm(planes, axis=-1, keepdims=True)
@@ -461,9 +461,9 @@ def calcPlaneDepths(planes, width, height, metadata, max_depth=10):
     return planeDepths
 
 ## The function to compute plane XYZ from plane parameters
-def calcPlaneXYZ(planes, width, height, metadata, max_depth=10):
-    urange = (np.arange(width, dtype=np.float32).reshape(1, -1).repeat(height, 0) / (width + 1) * (metadata[4] + 1) - metadata[2]) / metadata[0]
-    vrange = (np.arange(height, dtype=np.float32).reshape(-1, 1).repeat(width, 1) / (height + 1) * (metadata[5] + 1) - metadata[3]) / metadata[1]
+def calcPlaneXYZ(planes, width, height, camera, max_depth=10):
+    urange = (np.arange(width, dtype=np.float32).reshape(1, -1).repeat(height, 0) / (width + 1) * (camera[4] + 1) - camera[2]) / camera[0]
+    vrange = (np.arange(height, dtype=np.float32).reshape(-1, 1).repeat(width, 1) / (height + 1) * (camera[5] + 1) - camera[3]) / camera[1]
     ranges = np.stack([urange, np.ones(urange.shape), -vrange], axis=-1)
     
     planeOffsets = np.linalg.norm(planes, axis=-1, keepdims=True)
@@ -479,14 +479,14 @@ def calcPlaneXYZ(planes, width, height, metadata, max_depth=10):
 
 
 ## Compute surface normal from depth
-def calcNormal(depth, metadata):
+def calcNormal(depth, camera):
 
     height = depth.shape[0]
     width = depth.shape[1]
 
-    urange = (np.arange(width, dtype=np.float32) / (width) * (metadata[4]) - metadata[2]) / metadata[0]
+    urange = (np.arange(width, dtype=np.float32) / (width) * (camera[4]) - camera[2]) / camera[0]
     urange = urange.reshape(1, -1).repeat(height, 0)
-    vrange = (np.arange(height, dtype=np.float32) / (height) * (metadata[5]) - metadata[3]) / metadata[1]
+    vrange = (np.arange(height, dtype=np.float32) / (height) * (camera[5]) - camera[3]) / camera[1]
     vrange = vrange.reshape(-1, 1).repeat(width, 1)
 
     X = depth * urange
@@ -637,9 +637,9 @@ def predictPlaneNet(image):
 
 
 ## Clean segmentation
-def cleanSegmentation(image, planes, plane_info, segmentation, depth, metadata, planeAreaThreshold=200, planeWidthThreshold=10, depthDiffThreshold=0.1, validAreaThreshold=0.5, brightThreshold=20, confident_labels={}, return_plane_depths=False):
+def cleanSegmentation(image, planes, plane_info, segmentation, depth, camera, planeAreaThreshold=200, planeWidthThreshold=10, depthDiffThreshold=0.1, validAreaThreshold=0.5, brightThreshold=20, confident_labels={}, return_plane_depths=False):
 
-    planeDepths = calcPlaneDepths(planes, segmentation.shape[1], segmentation.shape[0], metadata).transpose((2, 0, 1))
+    planeDepths = calcPlaneDepths(planes, segmentation.shape[1], segmentation.shape[0], camera).transpose((2, 0, 1))
     
     newSegmentation = np.full(segmentation.shape, fill_value=-1)
     validMask = np.logical_and(np.linalg.norm(image, axis=-1) > brightThreshold, depth > 1e-4)
@@ -692,7 +692,7 @@ def cleanSegmentation(image, planes, plane_info, segmentation, depth, metadata, 
 
 
 
-def getLayout(planes, depth, plane_depths, plane_info, segmentation, metadata, layout_labels={}, return_segmentation=True, get_boundary=True):
+def getLayout(planes, depth, plane_depths, plane_info, segmentation, camera, layout_labels={}, return_segmentation=True, get_boundary=True):
     parallelThreshold = np.cos(np.deg2rad(30))
     
     layoutSegmentation = np.full(segmentation.shape, fill_value=-1)
@@ -744,7 +744,7 @@ def getLayout(planes, depth, plane_depths, plane_info, segmentation, metadata, l
         normal_1 = plane_1 / max(offset_1, 1e-4)
         uv_1 = np.round(points_1.mean(0)).astype(np.int32)
         depth_value_1 = layout_plane_depths[index_1, uv_1[1], uv_1[0]]
-        point_1 = np.array([(uv_1[0] - metadata[2]) / metadata[0], 1, -(uv_1[1] - metadata[3]) / metadata[1]]) * depth_value_1        
+        point_1 = np.array([(uv_1[0] - camera[2]) / camera[0], 1, -(uv_1[1] - camera[3]) / camera[1]]) * depth_value_1        
         for index_2, points_2 in enumerate(layoutPlanePoints):
             if index_2 <= index_1:
                 continue
@@ -755,7 +755,7 @@ def getLayout(planes, depth, plane_depths, plane_info, segmentation, metadata, l
                 continue
             uv_2 = np.round(points_2.mean(0)).astype(np.int32)
             depth_value_2 = layout_plane_depths[index_2, uv_2[1], uv_2[0]]
-            point_2 = np.array([(uv_2[0] - metadata[2]) / metadata[0], 1, -(uv_2[1] - metadata[3]) / metadata[1]]) * depth_value_2
+            point_2 = np.array([(uv_2[0] - camera[2]) / camera[0], 1, -(uv_2[1] - camera[3]) / camera[1]]) * depth_value_2
 
             if np.dot(normal_1, point_2 - point_1) <= 0 and np.dot(normal_2, point_1 - point_2) < 0:
                 relations[index_1][index_2] = 1
@@ -898,7 +898,7 @@ def getLayout(planes, depth, plane_depths, plane_info, segmentation, metadata, l
     
     
 ## Get structures
-def getStructures(image, planes, plane_info, segmentation, depth, metadata):
+def getStructures(image, planes, plane_info, segmentation, depth, camera):
     parallelThreshold = np.cos(np.deg2rad(30))
 
     planePoints = []
@@ -956,11 +956,11 @@ def getStructures(image, planes, plane_info, segmentation, depth, metadata):
 
             uv_1 = planePoints[planeIndex_1]
             depth_1 = depth[uv_1[1], uv_1[0]]
-            point_1 = np.array([(uv_1[0] - metadata[2]) / metadata[0] * depth_1, depth_1, -(uv_1[1] - metadata[3]) / metadata[1] * depth_1])
+            point_1 = np.array([(uv_1[0] - camera[2]) / camera[0] * depth_1, depth_1, -(uv_1[1] - camera[3]) / camera[1] * depth_1])
             
             uv_2 = planePoints[planeIndex_2]
             depth_2 = depth[uv_2[1], uv_2[0]]
-            point_2 = np.array([(uv_2[0] - metadata[2]) / metadata[0] * depth_2, depth_2, -(uv_2[1] - metadata[3]) / metadata[1] * depth_2])                
+            point_2 = np.array([(uv_2[0] - camera[2]) / camera[0] * depth_2, depth_2, -(uv_2[1] - camera[3]) / camera[1] * depth_2])                
             
                 
             if np.dot(normal_1, point_2 - point_1) <= 0 and np.dot(normal_2, point_1 - point_2) < 0:
@@ -1047,7 +1047,7 @@ def getStructures(image, planes, plane_info, segmentation, depth, metadata):
         mask = np.any(np.array(masks), axis=0)
         
         structurePlanes = np.array(structurePlanes)
-        structurePlaneDepths = calcPlaneDepths(structurePlanes, segmentation.shape[1], segmentation.shape[0], metadata, max_depth=-1)
+        structurePlaneDepths = calcPlaneDepths(structurePlanes, segmentation.shape[1], segmentation.shape[0], camera, max_depth=-1)
         if convex:
             structurePlaneDepths[structurePlaneDepths < 1e-4] = 10
             structurePlaneDepth = structurePlaneDepths.min(-1)

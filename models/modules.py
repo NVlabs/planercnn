@@ -11,7 +11,7 @@ import numpy as np
 from torch import nn
 import sys
 
-def unmoldDetections(config, metadata, detections, detection_masks, depth_np, unmold_masks=True, debug=False):
+def unmoldDetections(config, camera, detections, detection_masks, depth_np, unmold_masks=True, debug=False):
     """Reformats the detections of one image from the format of the neural
     network output to a format suitable for use in the rest of the
     application.
@@ -72,7 +72,7 @@ def unmoldDetections(config, metadata, detections, detection_masks, depth_np, un
 
     if 'normal' in config.ANCHOR_TYPE:
         ## Compute offset based normal prediction and depthmap prediction
-        ranges = config.getRanges(metadata).transpose(1, 2).transpose(0, 1)
+        ranges = config.getRanges(camera).transpose(1, 2).transpose(0, 1)
         zeros = torch.zeros(3, (config.IMAGE_MAX_DIM - config.IMAGE_MIN_DIM) // 2, config.IMAGE_MAX_DIM).cuda()        
         ranges = torch.cat([zeros, ranges, zeros], dim=1)
         
@@ -163,14 +163,14 @@ def planeDepthsModule(ranges, planes, width, height, max_depth=10):
         pass
     return planeDepths
 
-def warpModuleDepth(config, metadata, depth_1, features_2, extrinsics_1, extrinsics_2, width, height):
+def warpModuleDepth(config, camera, depth_1, features_2, extrinsics_1, extrinsics_2, width, height):
     """Warp one feature map to another view given camera pose and depth"""
     padding = (width - height) // 2
-    XYZ_1 = config.getRanges(metadata) * depth_1[padding:-padding].unsqueeze(-1)
-    warped_features, valid_mask = warpModuleXYZ(config, metadata, XYZ_1.unsqueeze(2), features_2, extrinsics_1, extrinsics_2, width, height)
+    XYZ_1 = config.getRanges(camera) * depth_1[padding:-padding].unsqueeze(-1)
+    warped_features, valid_mask = warpModuleXYZ(config, camera, XYZ_1.unsqueeze(2), features_2, extrinsics_1, extrinsics_2, width, height)
     return warped_features.squeeze(0), valid_mask
 
-def warpModuleXYZ(config, metadata, XYZ_1, features_2, extrinsics_1, extrinsics_2, width, height):
+def warpModuleXYZ(config, camera, XYZ_1, features_2, extrinsics_1, extrinsics_2, width, height):
     """Warp one feature map to another view given camera pose and XYZ"""
     XYZ_shape = XYZ_1.shape
     numPlanes = int(XYZ_1.shape[2])
@@ -178,8 +178,8 @@ def warpModuleXYZ(config, metadata, XYZ_1, features_2, extrinsics_1, extrinsics_
     XYZ_1 = XYZ_1.view((-1, 3))
     XYZ_2 = torch.matmul(torch.matmul(torch.cat([XYZ_1, torch.ones((len(XYZ_1), 1)).cuda()], dim=-1), extrinsics_1.inverse().transpose(0, 1)), extrinsics_2.transpose(0, 1))
     validMask = XYZ_2[:, 1] > 1e-4
-    U = (XYZ_2[:, 0] / torch.clamp(XYZ_2[:, 1], min=1e-4) * metadata[0] + metadata[2]) / metadata[4] * 2 - 1
-    V = (-XYZ_2[:, 2] / torch.clamp(XYZ_2[:, 1], min=1e-4) * metadata[1] + metadata[3]) / metadata[5] * 2 - 1
+    U = (XYZ_2[:, 0] / torch.clamp(XYZ_2[:, 1], min=1e-4) * camera[0] + camera[2]) / camera[4] * 2 - 1
+    V = (-XYZ_2[:, 2] / torch.clamp(XYZ_2[:, 1], min=1e-4) * camera[1] + camera[3]) / camera[5] * 2 - 1
 
     padding = (width - height) // 2
     grids = torch.stack([U, V], dim=-1)
@@ -195,9 +195,9 @@ def warpModuleXYZ(config, metadata, XYZ_1, features_2, extrinsics_1, extrinsics_
     return warped_features, validMask
 
 
-def calcXYZModule(config, metadata, detections, masks, depth_np, return_individual=False, debug_type=0):
+def calcXYZModule(config, camera, detections, masks, depth_np, return_individual=False, debug_type=0):
     """Compute a global coordinate map from plane detections"""
-    ranges = config.getRanges(metadata)
+    ranges = config.getRanges(camera)
     ranges_ori = ranges
     zeros = torch.zeros(3, (config.IMAGE_MAX_DIM - config.IMAGE_MIN_DIM) // 2, config.IMAGE_MAX_DIM).cuda()        
     ranges = torch.cat([zeros, ranges.transpose(1, 2).transpose(0, 1), zeros], dim=1)

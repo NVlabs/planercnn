@@ -21,7 +21,7 @@ class ScanNetScene():
 
         self.confident_labels, self.layout_labels = confident_labels, layout_labels
         
-        self.metadata = np.zeros(10)
+        self.camera = np.zeros(6)
 
         if self.scannetVersion == 1:
             with open(scenePath + '/frames/_info.txt') as f:
@@ -31,10 +31,10 @@ class ScanNetScene():
                     if tokens[0] == "m_calibrationColorIntrinsic":
                         intrinsics = np.array([float(e) for e in tokens[2:]])
                         intrinsics = intrinsics.reshape((4, 4))
-                        self.metadata[0] = intrinsics[0][0]
-                        self.metadata[1] = intrinsics[1][1]
-                        self.metadata[2] = intrinsics[0][2]
-                        self.metadata[3] = intrinsics[1][2]                    
+                        self.camera[0] = intrinsics[0][0]
+                        self.camera[1] = intrinsics[1][1]
+                        self.camera[2] = intrinsics[0][2]
+                        self.camera[3] = intrinsics[1][2]                    
                     elif tokens[0] == "m_colorWidth":
                         self.colorWidth = int(tokens[2])
                     elif tokens[0] == "m_colorHeight":
@@ -57,13 +57,13 @@ class ScanNetScene():
                     line = line.strip()
                     tokens = [token for token in line.split(' ') if token.strip() != '']
                     if tokens[0] == "fx_depth":
-                        self.metadata[0] = float(tokens[2])
+                        self.camera[0] = float(tokens[2])
                     if tokens[0] == "fy_depth":
-                        self.metadata[1] = float(tokens[2])
+                        self.camera[1] = float(tokens[2])
                     if tokens[0] == "mx_depth":
-                        self.metadata[2] = float(tokens[2])                            
+                        self.camera[2] = float(tokens[2])                            
                     if tokens[0] == "my_depth":
-                        self.metadata[3] = float(tokens[2])                            
+                        self.camera[3] = float(tokens[2])                            
                     elif tokens[0] == "colorWidth":
                         self.colorWidth = int(tokens[2])
                     elif tokens[0] == "colorHeight":
@@ -81,8 +81,8 @@ class ScanNetScene():
             self.imagePaths = [scenePath + '/frames/color/' + str(imageIndex) + '.jpg' for imageIndex in range(self.numImages - 1)]
             pass
             
-        self.metadata[4] = self.depthWidth
-        self.metadata[5] = self.depthHeight
+        self.camera[4] = self.depthWidth
+        self.camera[5] = self.depthHeight
         self.planes = np.load(scenePath + '/annotation/planes.npy')
 
         self.plane_info = np.load(scenePath + '/annotation/plane_info.npy')            
@@ -186,7 +186,7 @@ class ScanNetScene():
 
         if len(planes) > 0:
             planes = self.transformPlanes(extrinsics, planes)
-            segmentation, plane_depths = cleanSegmentation(image, planes, plane_info, segmentation, depth, self.metadata, planeAreaThreshold=self.options.planeAreaThreshold, planeWidthThreshold=self.options.planeWidthThreshold, confident_labels=self.confident_labels, return_plane_depths=True)
+            segmentation, plane_depths = cleanSegmentation(image, planes, plane_info, segmentation, depth, self.camera, planeAreaThreshold=self.options.planeAreaThreshold, planeWidthThreshold=self.options.planeWidthThreshold, confident_labels=self.confident_labels, return_plane_depths=True)
 
             masks = (np.expand_dims(segmentation, -1) == np.arange(len(planes))).astype(np.float32)
             plane_depth = (plane_depths.transpose((1, 2, 0)) * masks).sum(2)
@@ -204,7 +204,7 @@ class ScanNetScene():
             exit(1)
             pass
         
-        info = [image, planes, plane_info, segmentation, depth, self.metadata, extrinsics]
+        info = [image, planes, plane_info, segmentation, depth, self.camera, extrinsics]
 
         if self.load_semantics or self.load_boundary:
             semantics = cv2.imread(semanticsPath, -1).astype(np.int32)
@@ -225,7 +225,7 @@ class ScanNetScene():
                     continue
                 u, v = int(round(xs.mean())), int(round(ys.mean()))
                 depth_value = plane_depths[plane_index, v, u]
-                point = np.array([(u - self.metadata[2]) / self.metadata[0] * depth_value, depth_value, -(v - self.metadata[3]) / self.metadata[1] * depth_value])
+                point = np.array([(u - self.camera[2]) / self.camera[0] * depth_value, depth_value, -(v - self.camera[3]) / self.camera[1] * depth_value])
                 plane_points.append(point)
                 plane_instances.append(np.bincount(semantics[ys, xs]).argmax())
                 continue

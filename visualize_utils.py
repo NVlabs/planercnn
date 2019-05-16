@@ -284,25 +284,25 @@ def visualizeBatchDetection(options, config, input_dict, detection_dict, indexOf
         pose = np.eye(4)
         pose[:3, :3] = np.matmul(axisAngleToRotationMatrix(np.array([-1, 0, 0]), np.pi / 18 * 0), axisAngleToRotationMatrix(np.array([0, 0, -1]), np.pi / 18))
         pose[:3, 3] = np.array([-0.4, 0, 0])        
-        drawNewViewDepth(options.test_dir + '/' + str(indexOffset) + '_new_view' + suffix + prediction_suffix + '.png', detection_masks[:, 80:560].detach().cpu().numpy(), detection_dict['plane_XYZ'].detach().cpu().numpy().transpose((0, 2, 3, 1))[:, 80:560], input_dict['metadata'].detach().cpu().numpy(), pose)
+        drawNewViewDepth(options.test_dir + '/' + str(indexOffset) + '_new_view' + suffix + prediction_suffix + '.png', detection_masks[:, 80:560].detach().cpu().numpy(), detection_dict['plane_XYZ'].detach().cpu().numpy().transpose((0, 2, 3, 1))[:, 80:560], input_dict['camera'].detach().cpu().numpy(), pose)
         depth = depth_gt[80:560]
-        ranges = config.getRanges(input_dict['metadata']).detach().cpu().numpy()
+        ranges = config.getRanges(input_dict['camera']).detach().cpu().numpy()
         XYZ_gt = ranges * np.expand_dims(depth, axis=-1)
-        drawNewViewDepth(options.test_dir + '/' + str(indexOffset) + '_new_view_depth_gt' + suffix + prediction_suffix + '.png', np.expand_dims(depth > 1e-4, 0), np.expand_dims(XYZ_gt, 0), input_dict['metadata'].detach().cpu().numpy(), pose)
+        drawNewViewDepth(options.test_dir + '/' + str(indexOffset) + '_new_view_depth_gt' + suffix + prediction_suffix + '.png', np.expand_dims(depth > 1e-4, 0), np.expand_dims(XYZ_gt, 0), input_dict['camera'].detach().cpu().numpy(), pose)
         depth = detection_dict['depth_np'].squeeze()[80:560]
-        ranges = config.getRanges(input_dict['metadata']).detach().cpu().numpy()
+        ranges = config.getRanges(input_dict['camera']).detach().cpu().numpy()
         XYZ_gt = ranges * np.expand_dims(depth, axis=-1)
-        drawNewViewDepth(options.test_dir + '/' + str(indexOffset) + '_new_view_depth_pred' + suffix + prediction_suffix + '.png', np.expand_dims(depth > 1e-4, 0), np.expand_dims(XYZ_gt, 0), input_dict['metadata'].detach().cpu().numpy(), pose)        
+        drawNewViewDepth(options.test_dir + '/' + str(indexOffset) + '_new_view_depth_pred' + suffix + prediction_suffix + '.png', np.expand_dims(depth > 1e-4, 0), np.expand_dims(XYZ_gt, 0), input_dict['camera'].detach().cpu().numpy(), pose)        
         pass
 
     if write_new_view:
         detection_masks = detection_dict['masks'][:, 80:560].detach().cpu().numpy()
         XYZ_pred = detection_dict['plane_XYZ'].detach().cpu().numpy().transpose((0, 2, 3, 1))[:, 80:560]
         depth = depth_gt[80:560]
-        ranges = config.getRanges(input_dict['metadata']).detach().cpu().numpy()
+        ranges = config.getRanges(input_dict['camera']).detach().cpu().numpy()
         XYZ_gt = np.expand_dims(ranges * np.expand_dims(depth, axis=-1), 0)
         valid_mask = np.expand_dims(depth > 1e-4, 0).astype(np.float32)
-        metadata = input_dict['metadata'].detach().cpu().numpy()
+        camera = input_dict['camera'].detach().cpu().numpy()
 
         valid_mask = np.expand_dims(cv2.resize(valid_mask[0], (256, 192)), 0)
         XYZ_gt = np.expand_dims(cv2.resize(XYZ_gt[0], (256, 192)), 0)
@@ -323,9 +323,9 @@ def visualizeBatchDetection(options, config, input_dict, detection_dict, indexOf
                 pose[:3, 3] = location
 
                 index_offset = sum(num_frames[:c]) + frame
-                drawNewViewDepth(options.test_dir + '/' + str(indexOffset) + '_video/' + str(index_offset) + '.png', detection_masks, XYZ_pred, metadata, pose)
+                drawNewViewDepth(options.test_dir + '/' + str(indexOffset) + '_video/' + str(index_offset) + '.png', detection_masks, XYZ_pred, camera, pose)
                 
-                drawNewViewDepth(options.test_dir + '/' + str(indexOffset) + '_video_gt/' + str(index_offset) + '.png', valid_mask, XYZ_gt, metadata, pose)
+                drawNewViewDepth(options.test_dir + '/' + str(indexOffset) + '_video_gt/' + str(index_offset) + '.png', valid_mask, XYZ_gt, camera, pose)
                 continue
             continue
         exit(1)
@@ -334,7 +334,7 @@ def visualizeBatchDetection(options, config, input_dict, detection_dict, indexOf
     if write_ply:
         detection_masks = detection_dict['masks']
         if 'plane_XYZ' not in detection_dict:
-            plane_XYZ = planeXYZModule(config.getRanges(input_dict['metadata']), detection_dict['detection'][:, 6:9], width=config.IMAGE_MAX_DIM, height=config.IMAGE_MIN_DIM)
+            plane_XYZ = planeXYZModule(config.getRanges(input_dict['camera']), detection_dict['detection'][:, 6:9], width=config.IMAGE_MAX_DIM, height=config.IMAGE_MIN_DIM)
             plane_XYZ = plane_XYZ.transpose(1, 2).transpose(0, 1).transpose(2, 3).transpose(1, 2)
             zeros = torch.zeros(int(plane_XYZ.shape[0]), 3, (config.IMAGE_MAX_DIM - config.IMAGE_MIN_DIM) // 2, config.IMAGE_MAX_DIM).cuda()
             plane_XYZ = torch.cat([zeros, plane_XYZ, zeros], dim=2)
@@ -686,7 +686,7 @@ end_header
     return
 
 
-def drawNewViewDepth(depth_filename, masks, XYZs, metadata, pose):
+def drawNewViewDepth(depth_filename, masks, XYZs, camera, pose):
     faces = []
     width, height = masks.shape[2], masks.shape[1]
     for mask, XYZ in zip(masks, XYZs):

@@ -469,7 +469,7 @@ class RefinementNet(nn.Module):
             pass
         return
     
-    def forward(self, image_1, metadata, prev_result):
+    def forward(self, image_1, camera, prev_result):
         masks = prev_result['mask']
 
         if 'refine_only' in self.options.suffix:
@@ -484,7 +484,7 @@ class RefinementNet(nn.Module):
 
         result = {'plane': plane, 'depth': depth}
 
-        plane_depths, plane_XYZ = self.plane_to_depth(metadata[0], result['plane'], return_XYZ=True)
+        plane_depths, plane_XYZ = self.plane_to_depth(camera[0], result['plane'], return_XYZ=True)
         all_depths = torch.cat([result['depth'].squeeze(1), plane_depths], dim=0)
         
         all_masks = torch.softmax(masks, dim=0)
@@ -511,7 +511,7 @@ class RefinementNetConcat(nn.Module):
         self.plane_to_depth = PlaneToDepth(normalized_K=True, W=256, H=192)        
         return
     
-    def forward(self, image_1, metadata, prev_result):
+    def forward(self, image_1, camera, prev_result):
         masks = prev_result['mask']
         masks = masks[:, :1].view((1, -1, int(masks.shape[2]), int(masks.shape[3])))
         masks = torch.cat([torch.clamp(1 - masks.sum(1, keepdim=True), min=0), masks], dim=1)
@@ -526,7 +526,7 @@ class RefinementNetConcat(nn.Module):
         result = {}
         
         result = {'plane': prev_result['plane'], 'depth': prev_result['depth']}
-        plane_depths, plane_XYZ = self.plane_to_depth(metadata[0], result['plane'], return_XYZ=True)
+        plane_depths, plane_XYZ = self.plane_to_depth(camera[0], result['plane'], return_XYZ=True)
         all_depths = torch.cat([result['depth'].squeeze(1), plane_depths], dim=0)
 
         all_masks = torch.softmax(masks, dim=0)
@@ -627,7 +627,7 @@ class RefineModel(nn.Module):
         return
 
     
-    def forward(self, image_1, image_2, metadata, masks, planes, plane_depth, depth_np, gt_dict={}):
+    def forward(self, image_1, image_2, camera, masks, planes, plane_depth, depth_np, gt_dict={}):
         results = []
         result = {'plane': planes, 'mask': masks[:, 0], 'depth': depth_np.unsqueeze(1), 'plane_depth': depth_np.unsqueeze(1)}
         results.append(result)
@@ -641,7 +641,7 @@ class RefineModel(nn.Module):
             all_masks = self.crfrnn([logits, ((image_1[0] + 0.5) * 255).cpu()])
             masks = all_masks[1:].unsqueeze(1)
             
-            plane_depths, plane_XYZ = self.plane_to_depth(metadata[0], result['plane'], return_XYZ=True)
+            plane_depths, plane_XYZ = self.plane_to_depth(camera[0], result['plane'], return_XYZ=True)
 
             all_depths = torch.cat([result['depth'].squeeze(1), plane_depths], dim=0)
             plane_depth = (all_depths * all_masks).sum(0, keepdim=True)
@@ -655,6 +655,6 @@ class RefineModel(nn.Module):
             result = {'mask': masks, 'plane': planes, 'depth': depth_np.unsqueeze(1), 'plane_depth': depth_np.unsqueeze(1)}
             pass
 
-        result = self.refinement_net(image_1, metadata, result)
+        result = self.refinement_net(image_1, camera, result)
         results.append(result)        
         return results

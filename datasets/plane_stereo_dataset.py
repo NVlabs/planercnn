@@ -62,7 +62,7 @@ class PlaneDataset(PlaneDatasetSingle):
                 continue
             
             try:
-                image_1, planes_1, plane_info_1, segmentation_1, depth_1, metadata_1, extrinsics_1, semantics_1 = scene[imageIndex]                
+                image_1, planes_1, plane_info_1, segmentation_1, depth_1, camera_1, extrinsics_1, semantics_1 = scene[imageIndex]                
             except:                
                 if self.write_invalid_indices:
                     print('invalid')
@@ -73,19 +73,19 @@ class PlaneDataset(PlaneDatasetSingle):
             if self.write_invalid_indices:
                 return 0
             
-            info_1 = [image_1, planes_1, plane_info_1, segmentation_1, depth_1, metadata_1, extrinsics_1, semantics_1]
+            info_1 = [image_1, planes_1, plane_info_1, segmentation_1, depth_1, camera_1, extrinsics_1, semantics_1]
             
             try:
-                image_2, planes_2, plane_info_2, segmentation_2, depth_2, metadata_2, extrinsics_2, semantics_2 = scene[imageIndex_2]
+                image_2, planes_2, plane_info_2, segmentation_2, depth_2, camera_2, extrinsics_2, semantics_2 = scene[imageIndex_2]
             except:
                 continue
             
-            info_2 = [image_2, planes_2, plane_info_2, segmentation_2, depth_2, metadata_2, extrinsics_2, semantics_2]
+            info_2 = [image_2, planes_2, plane_info_2, segmentation_2, depth_2, camera_2, extrinsics_2, semantics_2]
             break
         if self.image_only:
             data_pair = []
             for info in [info_1, info_2]:
-                image, planes, plane_info, segmentation, depth, metadata, extrinsics, semantics = info
+                image, planes, plane_info, segmentation, depth, camera, extrinsics, semantics = info
                 image = cv2.resize(image, (depth.shape[1], depth.shape[0]))
                 image, window, scale, padding = utils.resize_image(
                     image,
@@ -96,13 +96,13 @@ class PlaneDataset(PlaneDatasetSingle):
                 image = utils.mold_image(image.astype(np.float32), self.config)                
                 image = torch.from_numpy(image.transpose(2, 0, 1)).float()
                 depth = np.concatenate([np.zeros((80, 640)), depth, np.zeros((80, 640))], axis=0)
-                data_pair += [image, depth.astype(np.float32), metadata]
+                data_pair += [image, depth.astype(np.float32), camera]
                 continue
             return data_pair
         data_pair = []
         extrinsics_pair = []
         for info in [info_1, info_2]:
-            image, planes, plane_info, segmentation, depth, metadata, extrinsics, semantics = info
+            image, planes, plane_info, segmentation, depth, camera, extrinsics, semantics = info
 
             image = cv2.resize(image, (depth.shape[1], depth.shape[0]))
             
@@ -221,7 +221,7 @@ class PlaneDataset(PlaneDatasetSingle):
         data_pair.append(info_1[1].astype(np.float32))
         data_pair.append(info_2[1].astype(np.float32))        
         data_pair.append(correspondence)
-        data_pair.append(metadata.astype(np.float32))
+        data_pair.append(camera.astype(np.float32))
 
         return data_pair
 

@@ -15,13 +15,13 @@ from datasets.plane_dataset import *
 class InferenceDataset(Dataset):
     """ This class creates a dataloader for custom images """
 
-    def __init__(self, options, config, image_list, metadata, random=False):
-        """ metadata: [fx, fy, cx, cy, image_width, image_height, dummy, dummy, dummy, dummy] """
+    def __init__(self, options, config, image_list, camera, random=False):
+        """ camera: [fx, fy, cx, cy, image_width, image_height, dummy, dummy, dummy, dummy] """
         
         self.options = options
         self.config = config
         self.random = random
-        self.metadata = metadata
+        self.camera = camera
         self.imagePaths = image_list
         self.anchors = generate_pyramid_anchors(config.RPN_ANCHOR_SCALES,
                                                       config.RPN_ANCHOR_RATIOS,
@@ -46,31 +46,29 @@ class InferenceDataset(Dataset):
         image = cv2.imread(imagePath)
         extrinsics = np.eye(4, dtype=np.float32)
 
-        if isinstance(self.metadata, list):
-            if isinstance(self.metadata[index], str):
-                metadata = np.zeros(10)
-                with open(self.metadata[index], 'r') as f:
+        if isinstance(self.camera, list):
+            if isinstance(self.camera[index], str):
+                camera = np.zeros(6)
+                with open(self.camera[index], 'r') as f:
                     for line in f:
                         values = [float(token.strip()) for token in line.split(' ') if token.strip() != '']
-                        metadata[0] = values[0]
-                        metadata[1] = values[4]
-                        metadata[2] = values[2]
-                        metadata[3] = values[5]
-                        metadata[4] = image.shape[1]
-                        metadata[5] = image.shape[0]
+                        for c in range(6):
+                            camera[c] = values[c]
+                            continue
                         break
                     pass
             else:
-                metadata = self.metadata[index]
+                camera = self.camera[index]
                 pass
-        elif len(self.metadata) == 10:
-            metadata = self.metadata
+        elif len(self.camera) == 6:
+            camera = self.camera
         else:
             assert(False)
             pass
 
         image = cv2.resize(image, (640, 480), interpolation=cv2.INTER_LINEAR)
-
+        camera[[0, 2, 4]] *= 640.0 / camera[4]        
+        camera[[1, 3, 5]] *= 480.0 / camera[5]
 
         ## The below codes just fill in dummy values for all other data entries which are not used for inference. You can ignore everything except some preprocessing operations on "image".
         depth = np.zeros((self.config.IMAGE_MIN_DIM, self.config.IMAGE_MAX_DIM), dtype=np.float32)
@@ -169,7 +167,7 @@ class InferenceDataset(Dataset):
         data_pair.append(planes)
         data_pair.append(planes)
         data_pair.append(np.zeros((len(planes), len(planes))))
-        data_pair.append(metadata.astype(np.float32))
+        data_pair.append(camera.astype(np.float32))
         return data_pair
 
     def __len__(self):

@@ -884,8 +884,7 @@ def fitPlanesPiecewise(image, depth, normal, info, numOutputPlanes=20, imageInde
             continue
         continue
 
-    metadata = np.array([info[0], info[5], info[2], info[6], info[16], info[17], 0, 0, 0, 0])
-    planeDepths = calcPlaneDepths(planes, width, height, metadata).reshape((height * width, -1))
+    planeDepths = calcPlaneDepths(planes, width, height, np.array([info[0], info[5], info[2], info[6], info[16], info[17], 0, 0, 0, 0])).reshape((height * width, -1))
     planeDepths = readProposalInfo(planeDepths, proposals).reshape((-1, numProposals))
 
     planeHorizontalVPMask = np.ones((planes.shape[0], 3), dtype=np.bool)

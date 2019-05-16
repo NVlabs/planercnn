@@ -89,19 +89,19 @@ class PlaneRCNNDetector():
 
         input_pair = []
         detection_pair = []
-        metadata = sample[30][0].cuda()
+        camera = sample[30][0].cuda()
         for indexOffset in [0, ]:
             images, image_metas, rpn_match, rpn_bbox, gt_class_ids, gt_boxes, gt_masks, gt_parameters, gt_depth, extrinsics, planes, gt_segmentation = sample[indexOffset + 0].cuda(), sample[indexOffset + 1].numpy(), sample[indexOffset + 2].cuda(), sample[indexOffset + 3].cuda(), sample[indexOffset + 4].cuda(), sample[indexOffset + 5].cuda(), sample[indexOffset + 6].cuda(), sample[indexOffset + 7].cuda(), sample[indexOffset + 8].cuda(), sample[indexOffset + 9].cuda(), sample[indexOffset + 10].cuda(), sample[indexOffset + 11].cuda()
-            rpn_class_logits, rpn_pred_bbox, target_class_ids, mrcnn_class_logits, target_deltas, mrcnn_bbox, target_mask, mrcnn_mask, target_parameters, mrcnn_parameters, detections, detection_masks, detection_gt_parameters, detection_gt_masks, rpn_rois, roi_features, roi_indices, depth_np_pred = self.model.predict([images, image_metas, gt_class_ids, gt_boxes, gt_masks, gt_parameters, metadata], mode='inference_detection', use_nms=2, use_refinement=True)
+            rpn_class_logits, rpn_pred_bbox, target_class_ids, mrcnn_class_logits, target_deltas, mrcnn_bbox, target_mask, mrcnn_mask, target_parameters, mrcnn_parameters, detections, detection_masks, detection_gt_parameters, detection_gt_masks, rpn_rois, roi_features, roi_indices, depth_np_pred = self.model.predict([images, image_metas, gt_class_ids, gt_boxes, gt_masks, gt_parameters, camera], mode='inference_detection', use_nms=2, use_refinement=True)
 
             if len(detections) > 0:
-                detections, detection_masks = unmoldDetections(self.config, metadata, detections, detection_masks, depth_np_pred, debug=False)
+                detections, detection_masks = unmoldDetections(self.config, camera, detections, detection_masks, depth_np_pred, debug=False)
                 pass
 
-            XYZ_pred, detection_mask, plane_XYZ = calcXYZModule(self.config, metadata, detections, detection_masks, depth_np_pred, return_individual=True)
+            XYZ_pred, detection_mask, plane_XYZ = calcXYZModule(self.config, camera, detections, detection_masks, depth_np_pred, return_individual=True)
             detection_mask = detection_mask.unsqueeze(0)
 
-            input_pair.append({'image': images, 'depth': gt_depth, 'mask': gt_masks, 'bbox': gt_boxes, 'extrinsics': extrinsics, 'segmentation': gt_segmentation, 'metadata': metadata})
+            input_pair.append({'image': images, 'depth': gt_depth, 'mask': gt_masks, 'bbox': gt_boxes, 'extrinsics': extrinsics, 'segmentation': gt_segmentation, 'camera': camera})
 
             if 'nyu_dorn_only' in self.options.dataset:
                 XYZ_pred[1:2] = sample[27].cuda()
@@ -114,7 +114,7 @@ class PlaneRCNNDetector():
             pose = sample[26][0].cuda()
             pose = torch.cat([pose[0:3], pose[3:6] * pose[6]], dim=0)
             pose_gt = torch.cat([pose[0:1], -pose[2:3], pose[1:2], pose[3:4], -pose[5:6], pose[4:5]], dim=0).unsqueeze(0)
-            metadata = metadata.unsqueeze(0)
+            camera = camera.unsqueeze(0)
 
             for c in range(1):
                 detection_dict, input_dict = detection_pair[c], input_pair[c]
@@ -144,7 +144,7 @@ class PlaneRCNNDetector():
                 new_input_dict['image'] = image
                 new_input_dict['image_2'] = image_2
 
-                results = self.refine_model(image, image_2, metadata, masks_inp, detection_dict['detection'][:, 6:9], plane_depth, depth_np)
+                results = self.refine_model(image, image_2, camera, masks_inp, detection_dict['detection'][:, 6:9], plane_depth, depth_np)
 
                 masks = results[-1]['mask'].squeeze(1)
 
@@ -164,7 +164,7 @@ class PlaneRCNNDetector():
 
                 if self.options.modelType == 'fitting':
                     masks_cropped = masks_small
-                    ranges = self.config.getRanges(metadata).transpose(1, 2).transpose(0, 1)
+                    ranges = self.config.getRanges(camera).transpose(1, 2).transpose(0, 1)
                     XYZ = torch.nn.functional.interpolate(ranges.unsqueeze(1), size=(192, 256), mode='bilinear').squeeze(1) * results[-1]['depth'].squeeze(1)
                     detection_areas = masks_cropped.sum(-1).sum(-1)
                     A = masks_cropped.unsqueeze(1) * XYZ
@@ -176,7 +176,7 @@ class PlaneRCNNDetector():
                     plane_parameters = plane_parameters / torch.clamp(torch.pow(plane_offsets, 2), 1e-4)
                     detection_dict['detection'][:, 6:9] = plane_parameters
 
-                    XYZ_pred, detection_mask, plane_XYZ = calcXYZModule(self.config, metadata, detection_dict['detection'], detection_masks, detection_dict['depth'], return_individual=True)
+                    XYZ_pred, detection_mask, plane_XYZ = calcXYZModule(self.config, camera, detection_dict['detection'], detection_masks, detection_dict['depth'], return_individual=True)
                     detection_dict['depth'] = XYZ_pred[1:2]
                     pass
                 continue
@@ -202,11 +202,11 @@ class DepthDetector():
 
     def detect(self, sample):
         detection_pair = []
-        metadata = sample[30][0].cuda()
+        camera = sample[30][0].cuda()
         for indexOffset in [0, ]:
             images, image_metas, rpn_match, rpn_bbox, gt_class_ids, gt_boxes, gt_masks, gt_parameters, gt_depth, extrinsics, planes, gt_segmentation = sample[indexOffset + 0].cuda(), sample[indexOffset + 1].numpy(), sample[indexOffset + 2].cuda(), sample[indexOffset + 3].cuda(), sample[indexOffset + 4].cuda(), sample[indexOffset + 5].cuda(), sample[indexOffset + 6].cuda(), sample[indexOffset + 7].cuda(), sample[indexOffset + 8].cuda(), sample[indexOffset + 9].cuda(), sample[indexOffset + 10].cuda(), sample[indexOffset + 11].cuda()
 
-            depth_np_pred = self.model.predict([images, metadata], mode='inference_detection', use_nms=2, use_refinement='refinement' in self.options.suffix)
+            depth_np_pred = self.model.predict([images, camera], mode='inference_detection', use_nms=2, use_refinement='refinement' in self.options.suffix)
 
             if depth_np_pred.shape != gt_depth.shape:
                 depth_np_pred = torch.nn.functional.interpolate(depth_np_pred.unsqueeze(1), size=(640, 640), mode='bilinear').squeeze(1)
@@ -264,7 +264,7 @@ class PlaneRecoverDetector():
     def detect(self, sample):
 
         detection_pair = []
-        metadata = sample[30][0].cuda()
+        camera = sample[30][0].cuda()
         for indexOffset in [0, ]:
             images, image_metas, rpn_match, rpn_bbox, gt_class_ids, gt_boxes, gt_masks, gt_parameters, gt_depth, extrinsics, planes, gt_segmentation = sample[indexOffset + 0].cuda(), sample[indexOffset + 1].numpy(), sample[indexOffset + 2].cuda(), sample[indexOffset + 3].cuda(), sample[indexOffset + 4].cuda(), sample[indexOffset + 5].cuda(), sample[indexOffset + 6].cuda(), sample[indexOffset + 7].cuda(), sample[indexOffset + 8].cuda(), sample[indexOffset + 9].cuda(), sample[indexOffset + 10].cuda(), sample[indexOffset + 11].cuda()
 
@@ -281,7 +281,7 @@ class PlaneRecoverDetector():
 
             detections = torch.from_numpy(detections).float().cuda()
             masks = torch.from_numpy(masks).float().cuda()
-            XYZ_pred, detection_mask, plane_XYZ = calcXYZModule(self.config, metadata, detections, masks, torch.zeros((1, 640, 640)).cuda(), return_individual=True)
+            XYZ_pred, detection_mask, plane_XYZ = calcXYZModule(self.config, camera, detections, masks, torch.zeros((1, 640, 640)).cuda(), return_individual=True)
             depth = XYZ_pred[1:2]
             print(planes)
             print(np.unique(segmentation))
@@ -324,8 +324,8 @@ class TraditionalDetector():
                 input_dict['semantics'] = pred_dict['semantics'].squeeze().argmax(-1)
                 pass
 
-            metadata = sample[30][0].numpy()
-            input_dict['info'] = np.array([metadata[0], 0, metadata[2], 0, 0, metadata[1], metadata[3], 0, 0, 0, 1, 0, 0, 0, 0, 1, metadata[4], metadata[5], 1000, 0])
+            camera = sample[30][0].numpy()
+            input_dict['info'] = np.array([camera[0], 0, camera[2], 0, 0, camera[1], camera[3], 0, 0, 0, 1, 0, 0, 0, 0, 1, camera[4], camera[5], 1000, 0])
             np.save('test/input_dict.npy', input_dict)
             os.system('rm test/output_dict.npy')
             os.system('python plane_utils.py ' + self.modelType)
@@ -336,7 +336,7 @@ class TraditionalDetector():
 
             planes = output_dict['plane']
             masks = (segmentation == np.arange(len(planes), dtype=np.int32).reshape((-1, 1, 1))).astype(np.float32)
-            plane_depths = calcPlaneDepths(planes, 256, 192, metadata, max_depth=10)
+            plane_depths = calcPlaneDepths(planes, 256, 192, camera, max_depth=10)
             depth = (plane_depths * (np.expand_dims(output_dict['segmentation'], -1) == np.arange(len(planes)))).sum(-1)
             depth = cv2.resize(depth, (640, 480), interpolation=cv2.INTER_LINEAR)
             depth = np.concatenate([np.zeros((80, 640)), depth, np.zeros((80, 640))], axis=0)
@@ -365,142 +365,134 @@ def evaluate(options):
     elif options.dataset == 'synthia':
         dataset = SynthiaDataset(options, config, split='val', random=False)
     elif options.dataset == 'kitti':
-        metadata = np.zeros(10)
-        metadata[0] = 9.842439e+02
-        metadata[1] = 9.808141e+02
-        metadata[2] = 6.900000e+02
-        metadata[3] = 2.331966e+02
-        metadata[4] = 1242
-        metadata[5] = 375
-        dataset = InferenceDataset(options, config, image_list=glob.glob('../../Data/KITTI/scene_3/*.png'), metadata=metadata)
+        camera = np.zeros(6)
+        camera[0] = 9.842439e+02
+        camera[1] = 9.808141e+02
+        camera[2] = 6.900000e+02
+        camera[3] = 2.331966e+02
+        camera[4] = 1242
+        camera[5] = 375
+        dataset = InferenceDataset(options, config, image_list=glob.glob('../../Data/KITTI/scene_3/*.png'), camera=camera)
     elif options.dataset == '7scene':
-        metadata = np.zeros(10)
-        metadata[0] = 519
-        metadata[1] = 519
-        metadata[2] = 320
-        metadata[3] = 240
-        metadata[4] = 640
-        metadata[5] = 480
-        dataset = InferenceDataset(options, config, image_list=glob.glob('../../Data/SevenScene/scene_3/*.png'), metadata=metadata)
+        camera = np.zeros(6)
+        camera[0] = 519
+        camera[1] = 519
+        camera[2] = 320
+        camera[3] = 240
+        camera[4] = 640
+        camera[5] = 480
+        dataset = InferenceDataset(options, config, image_list=glob.glob('../../Data/SevenScene/scene_3/*.png'), camera=camera)
     elif options.dataset == 'tanktemple':
-        metadata = np.zeros(10)
-        metadata[0] = 0.7
-        metadata[1] = 0.7
-        metadata[2] = 0.5
-        metadata[3] = 0.5
-        metadata[4] = 1
-        metadata[5] = 1
-        dataset = InferenceDataset(options, config, image_list=glob.glob('../../Data/TankAndTemple/scene_4/*.jpg'), metadata=metadata)
+        camera = np.zeros(6)
+        camera[0] = 0.7
+        camera[1] = 0.7
+        camera[2] = 0.5
+        camera[3] = 0.5
+        camera[4] = 1
+        camera[5] = 1
+        dataset = InferenceDataset(options, config, image_list=glob.glob('../../Data/TankAndTemple/scene_4/*.jpg'), camera=camera)
     elif options.dataset == 'make3d':
-        metadata = np.zeros(10)
-        metadata[0] = 0.7
-        metadata[1] = 0.7
-        metadata[2] = 0.5
-        metadata[3] = 0.5
-        metadata[4] = 1
-        metadata[5] = 1
-        dataset = InferenceDataset(options, config, image_list=glob.glob('../../Data/Make3D/*.jpg'), metadata=metadata)
+        camera = np.zeros(6)
+        camera[0] = 0.7
+        camera[1] = 0.7
+        camera[2] = 0.5
+        camera[3] = 0.5
+        camera[4] = 1
+        camera[5] = 1
+        dataset = InferenceDataset(options, config, image_list=glob.glob('../../Data/Make3D/*.jpg'), camera=camera)
     elif options.dataset == 'popup':
-        metadata = np.zeros(10)
-        metadata[0] = 0.7
-        metadata[1] = 0.7
-        metadata[2] = 0.5
-        metadata[3] = 0.5
-        metadata[4] = 1
-        metadata[5] = 1
-        dataset = InferenceDataset(options, config, image_list=glob.glob('../../Data/PhotoPopup/*.jpg'), metadata=metadata)
-    elif options.dataset == 'rob':
-        image_list = glob.glob('../../../rob_devkit/depth/datasets_ScanNet/test/*/color/*.jpg')
-        for filename in image_list:
-            depth_path = '/'.join(filename.split('/')[:-2]) + '/depth'
-            if not os.path.exists(depth_path):
-                os.system('mkdir ' + depth_path)
-                pass
-            continue
-        metadata_list = [filename.replace('color', 'intrinsic_depth').replace('jpg', 'txt') for filename in image_list]
-        print(len(image_list))
-        dataset = InferenceDataset(options, config, image_list=image_list, metadata=metadata_list)
+        camera = np.zeros(6)
+        camera[0] = 0.7
+        camera[1] = 0.7
+        camera[2] = 0.5
+        camera[3] = 0.5
+        camera[4] = 1
+        camera[5] = 1
+        dataset = InferenceDataset(options, config, image_list=glob.glob('../../Data/PhotoPopup/*.jpg'), camera=camera)
     elif options.dataset == 'cross' or options.dataset == 'cross_2':
         image_list = ['test/cross_dataset/' + str(c) + '_image.png' for c in range(12)]
-        metadatas = []
-        metadata = np.zeros(10)
-        metadata[0] = 587
-        metadata[1] = 587
-        metadata[2] = 320
-        metadata[3] = 240
-        metadata[4] = 640
-        metadata[5] = 480
+        cameras = []
+        camera = np.zeros(6)
+        camera[0] = 587
+        camera[1] = 587
+        camera[2] = 320
+        camera[3] = 240
+        camera[4] = 640
+        camera[5] = 480
         for c in range(4):
-            metadatas.append(metadata)
+            cameras.append(camera)
             continue
-        metadata_kitti = np.zeros(10)
-        metadata_kitti[0] = 9.842439e+02
-        metadata_kitti[1] = 9.808141e+02
-        metadata_kitti[2] = 6.900000e+02
-        metadata_kitti[3] = 2.331966e+02
-        metadata_kitti[4] = 1242.0
-        metadata_kitti[5] = 375.0
-        metadata_kitti[[1, 3, 5]] *= (480.0 / 640.0) / (metadata[5] / metadata[4])
+        camera_kitti = np.zeros(6)
+        camera_kitti[0] = 9.842439e+02
+        camera_kitti[1] = 9.808141e+02
+        camera_kitti[2] = 6.900000e+02
+        camera_kitti[3] = 2.331966e+02
+        camera_kitti[4] = 1242.0
+        camera_kitti[5] = 375.0
         for c in range(2):
-            metadatas.append(metadata_kitti)
+            cameras.append(camera_kitti)
             continue
-        metadata_synthia = np.zeros(10)
-        metadata_synthia[0] = 133.185088
-        metadata_synthia[1] = 134.587036
-        metadata_synthia[2] = 160.000000
-        metadata_synthia[3] = 96.000000
-        metadata_synthia[4] = 320
-        metadata_synthia[5] = 192
-        metadata_synthia[[1, 3, 5]] *= (480.0 / 640.0) / (metadata[5] / metadata[4])
+        camera_synthia = np.zeros(6)
+        camera_synthia[0] = 133.185088
+        camera_synthia[1] = 134.587036
+        camera_synthia[2] = 160.000000
+        camera_synthia[3] = 96.000000
+        camera_synthia[4] = 320
+        camera_synthia[5] = 192
         for c in range(2):
-            metadatas.append(metadata_synthia)
+            cameras.append(camera_synthia)
             continue
-        metadata_tanktemple = np.zeros(10)
-        metadata_tanktemple[0] = 0.7
-        metadata_tanktemple[1] = 0.7
-        metadata_tanktemple[2] = 0.5
-        metadata_tanktemple[3] = 0.5
-        metadata_tanktemple[4] = 1
-        metadata_tanktemple[5] = 1
-        metadata_tanktemple[[1, 3, 5]] *= (480.0 / 640.0) / (metadata[5] / metadata[4])
+        camera_tanktemple = np.zeros(6)
+        camera_tanktemple[0] = 0.7
+        camera_tanktemple[1] = 0.7
+        camera_tanktemple[2] = 0.5
+        camera_tanktemple[3] = 0.5
+        camera_tanktemple[4] = 1
+        camera_tanktemple[5] = 1
         for c in range(2):
-            metadatas.append(metadata_tanktemple)
+            cameras.append(camera_tanktemple)
             continue
         for c in range(2):
-            metadatas.append(metadata)
+            cameras.append(camera)
             continue
-        dataset = InferenceDataset(options, config, image_list=image_list, metadata=metadatas)
+        dataset = InferenceDataset(options, config, image_list=image_list, camera=cameras)
     elif options.dataset == 'selected':
         image_list = glob.glob('test/selected_images/*_image_0.png')
         image_list = [filename for filename in image_list if '63_image' not in filename and '77_image' not in filename] + [filename for filename in image_list if '63_image' in filename or '77_image' in filename]
-        metadata = np.zeros(10)
-        metadata[0] = 587
-        metadata[1] = 587
-        metadata[2] = 320
-        metadata[3] = 240
-        metadata[4] = 640
-        metadata[5] = 480
-        dataset = InferenceDataset(options, config, image_list=image_list, metadata=metadata)
+        camera = np.zeros(6)
+        camera[0] = 587
+        camera[1] = 587
+        camera[2] = 320
+        camera[3] = 240
+        camera[4] = 640
+        camera[5] = 480
+        dataset = InferenceDataset(options, config, image_list=image_list, camera=camera)
     elif options.dataset == 'comparison':
         image_list = ['test/comparison/' + str(index) + '_image_0.png' for index in [65, 11, 24]]
-        metadata = np.zeros(10)
-        metadata[0] = 587
-        metadata[1] = 587
-        metadata[2] = 320
-        metadata[3] = 240
-        metadata[4] = 640
-        metadata[5] = 480
-        dataset = InferenceDataset(options, config, image_list=image_list, metadata=metadata)
+        camera = np.zeros(6)
+        camera[0] = 587
+        camera[1] = 587
+        camera[2] = 320
+        camera[3] = 240
+        camera[4] = 640
+        camera[5] = 480
+        dataset = InferenceDataset(options, config, image_list=image_list, camera=camera)
     elif 'inference' in options.dataset:
         image_list = glob.glob(options.customDataFolder + '/*.png') + glob.glob(options.customDataFolder + '/*.jpg')
-        metadata = np.zeros(10)
-        metadata[0] = 587
-        metadata[1] = 587
-        metadata[2] = 320
-        metadata[3] = 240
-        metadata[4] = 640
-        metadata[5] = 480
-        dataset = InferenceDataset(options, config, image_list=image_list, metadata=metadata)
+        if os.path.exists(options.customDataFolder + '/camera.txt'):
+            camera = np.zeros(6)
+            with open(options.customDataFolder + '/camera.txt', 'r') as f:
+                for line in f:
+                    values = [float(token.strip()) for token in line.split(' ') if token.strip() != '']
+                    for c in range(6):
+                        camera[c] = values[c]
+                        continue
+                    break
+                pass
+        else:
+            camera = [filename.replace('.png', '.txt').replace('.jpg', '.txt') for filename in image_list]
+            pass
+        dataset = InferenceDataset(options, config, image_list=image_list, camera=camera)
         pass
 
     print('the number of images', len(dataset))
@@ -564,12 +556,12 @@ def evaluate(options):
                     break
                 continue
             input_pair = []
-            metadata = sample[30][0].cuda()
+            camera = sample[30][0].cuda()
             for indexOffset in [0, ]:
                 images, image_metas, rpn_match, rpn_bbox, gt_class_ids, gt_boxes, gt_masks, gt_parameters, gt_depth, extrinsics, planes, gt_segmentation = sample[indexOffset + 0].cuda(), sample[indexOffset + 1].numpy(), sample[indexOffset + 2].cuda(), sample[indexOffset + 3].cuda(), sample[indexOffset + 4].cuda(), sample[indexOffset + 5].cuda(), sample[indexOffset + 6].cuda(), sample[indexOffset + 7].cuda(), sample[indexOffset + 8].cuda(), sample[indexOffset + 9].cuda(), sample[indexOffset + 10].cuda(), sample[indexOffset + 11].cuda()
 
                 masks = (gt_segmentation == torch.arange(gt_segmentation.max() + 1).cuda().view(-1, 1, 1)).float()
-                input_pair.append({'image': images, 'depth': gt_depth, 'bbox': gt_boxes, 'extrinsics': extrinsics, 'segmentation': gt_segmentation, 'metadata': metadata, 'plane': planes[0], 'masks': masks, 'mask': gt_masks})
+                input_pair.append({'image': images, 'depth': gt_depth, 'bbox': gt_boxes, 'extrinsics': extrinsics, 'segmentation': gt_segmentation, 'camera': camera, 'plane': planes[0], 'masks': masks, 'mask': gt_masks})
                 continue
 
             if sampleIndex >= options.numTestingImages:
