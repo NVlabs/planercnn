@@ -39,6 +39,13 @@ conda install -y pytorch=0.4.1
 conda install pip
 pip install -r requirements.txt
 ```
+Equivalently, you can use Python virtual environment to manage the dependencies:
+```
+pip install virtualenv
+python -m virtualenv planercnn
+source planercnn/bin/activate
+pip install -r requirements.txt
+```
 Now, we compile nms and roialign as explained in the installation section of [pytorch-mask-rcnn](https://github.com/multimodallearning/pytorch-mask-rcnn). To be specific, you can build these two functions using the following commands with the right `--arch` option:
 	
 	| GPU | arch |
@@ -77,9 +84,9 @@ python evaluate.py --methods=f --suffix=warping_refine --dataset=inference --cus
 Results are saved under "test/inference/". Besides visualizations, plane parameters (#planes x 3) are saved in "\*_plane_parameters_0.npy" and plane masks (#planes x 480 x 640) are saved in "\*_plane_masks_0.npy".
 
 ## Using custom data
-Please put your images under a folder, and then run:
+Please put your images (*.png* or *.jpg* files), and camera intrinsics under a folder ($YOUR_IMAGE_FOLDER). The camera parameters should be put under a *.txt* file with 6 values (fx, fy, cx, fy, image_width, image_height) separately by a space. If the camera intrinsics is the same for all images, please put these parameters in *camera.txt*. Otherwise, please add a separate intrinsics file for each image, and name it the same with the image (changing the file extension to *.txt*). And then run:
 ```bash
-python evaluate.py --methods=f --suffix=warping_refine --dataset=inference --customDataFolder=$YOUR_IMAGE_PATH
+python evaluate.py --methods=f --suffix=warping_refine --dataset=inference --customDataFolder=$YOUR_IMAGE_FOLDER
 ```
 
 ## Training
