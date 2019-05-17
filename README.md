@@ -48,12 +48,12 @@ pip install -r requirements.txt
 ```
 Now, we compile nms and roialign as explained in the installation section of [pytorch-mask-rcnn](https://github.com/multimodallearning/pytorch-mask-rcnn). To be specific, you can build these two functions using the following commands with the right `--arch` option:
 	
-	| GPU | arch |
-	| --- | --- |
-    | TitanX | sm_52 |
-    | GTX 960M | sm_50 |
-    | GTX 1070 | sm_61 |
-    | GTX 1080 (Ti), Titan XP | sm_61 |
+| GPU | arch |
+| --- | --- |
+| TitanX | sm_52 |
+| GTX 960M | sm_50 |
+| GTX 1070 | sm_61 |
+| GTX 1080 (Ti), Titan XP | sm_61 |
 	
 More details of the compute capability are shown in [NVIDIA](https://developer.nvidia.com/cuda-gpus)
 
