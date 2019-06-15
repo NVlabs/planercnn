@@ -31,7 +31,7 @@ Clone repository:
 git clone https://github.com/NVlabs/planercnn.git
 ```
 
-Create an [Anaconda](https://www.anaconda.com/distribution/) environment and install the dependencies:
+Please use Python 3. Create an [Anaconda](https://www.anaconda.com/distribution/) environment and install the dependencies:
 ```
 conda create --name planercnn
 conda activate planercnn
