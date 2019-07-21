@@ -22,6 +22,7 @@ from models.refinement_net import RefineModel
 from models.modules import *
 from datasets.plane_stereo_dataset import *
 from datasets.inference_dataset import *
+from datasets.nyu_dataset import *
 from utils import *
 from visualize_utils import *
 from evaluate_utils import *
@@ -110,7 +111,7 @@ class PlaneRCNNDetector():
             detection_pair.append({'XYZ': XYZ_pred, 'depth': XYZ_pred[1:2], 'mask': detection_mask, 'detection': detections, 'masks': detection_masks, 'depth_np': depth_np_pred, 'plane_XYZ': plane_XYZ})
             continue
 
-        if 'refine' in self.modelType or 'refine' in self.options.suffix:
+        if ('refine' in self.modelType or 'refine' in self.options.suffix):
             pose = sample[26][0].cuda()
             pose = torch.cat([pose[0:3], pose[3:6] * pose[6]], dim=0)
             pose_gt = torch.cat([pose[0:1], -pose[2:3], pose[1:2], pose[3:4], -pose[5:6], pose[4:5]], dim=0).unsqueeze(0)
