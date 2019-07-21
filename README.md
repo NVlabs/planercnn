@@ -31,7 +31,7 @@ Clone repository:
 git clone https://github.com/NVlabs/planercnn.git
 ```
 
-Create an [Anaconda](https://www.anaconda.com/distribution/) environment and install the dependencies:
+Please use Python 3. Create an [Anaconda](https://www.anaconda.com/distribution/) environment and install the dependencies:
 ```
 conda create --name planercnn
 conda activate planercnn
@@ -72,6 +72,7 @@ python build.py
 cd ../../
 
 ```
+Please note that, the Mask R-CNN backbone does not support cuda10.0 and gcc versions higher than 6.
 
 ## Models
 Models are saved under *checkpoint/*. You can download our trained model from [here](https://www.dropbox.com/s/yjcg6s57n581sk0/checkpoint.zip?dl=0), and put it under *checkpoint/* if you want to fine-tune it or run inferences.
@@ -95,7 +96,9 @@ Please first download the ScanNet dataset (v2), unzip it to "$ROOT_FOLDER/scans/
 
 Then download our plane annotation from [here](https://www.dropbox.com/s/u2wl4ji700u4shq/ScanNet_planes.zip?dl=0), and merge the "scans/" folder with "$ROOT_FOLDER/scans/". (If you prefer other locations, please change the paths in *datasets/scannet_scene.py*.)
 
-After the above steps, ground truth plane annotations are stored under "$ROOT_FOLDER/scans/scene*/annotation/". Among the annotations, *planes.npy* stores the plane parameters which are represented in the global frame. Plane segmentation for each image view is stored under *segmentation/*. To generate such training data from the original 3D models on your own, please refer to *data_pred/parse.py*.
+After the above steps, ground truth plane annotations are stored under "$ROOT_FOLDER/scans/scene*/annotation/". Among the annotations, *planes.npy* stores the plane parameters which are represented in the global frame. Plane segmentation for each image view is stored under *segmentation/*.
+
+To generate such training data on your own, please refer to *data_prep/parse.py*. Please refer to the README under *data_prep/* for compilation.
 
 Besides scene-specific annotation under each scene folder, please download global metadata from [here](https://www.dropbox.com/s/v7qb7hwas1j766r/metadata.zip?dl=0), and unzip it to "$ROOT_FOLDER". Metadata includes the normal anchors (anchor_planes_N.py) and invalid image indices caused by tracking issues (invalid_indices_*.txt). 
 
