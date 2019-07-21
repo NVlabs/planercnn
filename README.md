@@ -145,6 +145,13 @@ Statistics are printed in terminal and saved in *logs/global.txt* for later anal
 
 Note that [PlaneNet](https://github.com/art-programmer/PlaneNet/blob/master/LICENSE) and [PlaneRecover](https://github.com/fuy34/planerecover/blob/master/LICENSE) are under the MIT license.
 
+To evaluate on the NYU Depth dataset, please first download the labeled dataset from the official [website](https://cs.nyu.edu/~silberman/datasets/nyu_depth_v2.html), and the official train/test split from [here](http://horatio.cs.nyu.edu/mit/silberman/indoor_seg_sup/splits.mat). Put them under the same folder "$NYU_FOLDER". To evaluate, please run,
+```bash
+python evaluate.py --methods=f --suffix=warping_refine --dataset=nyu --dataFolder="$NYU_FOLDER"
+```
+
+Note that the numbers are off with the provided model. We retrained the model after cleaning up the code, which is different from the model we tested for the publication.
+
 ## Contact
 If you have any questions, please contact the primary author [Chen Liu &lt;chenliu@wustl.edu>](mailto:chenliu@wustl.edu), or [Kihwan Kim &lt;kihwank@nvidia.com>](mailto:kihwank@nvidia.com).
 
