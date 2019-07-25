@@ -20,9 +20,9 @@ import glob
 from models.model import *
 from models.refinement_net import RefineModel
 from models.modules import *
-from datasets.plane_stereo_dataset import *
-from datasets.inference_dataset import *
-from datasets.nyu_dataset import *
+from datasets.plane_stereo_dataset import PlaneDataset
+from datasets.inference_dataset import InferenceDataset
+from datasets.nyu_dataset import NYUDataset
 from utils import *
 from visualize_utils import *
 from evaluate_utils import *
