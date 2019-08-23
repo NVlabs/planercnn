@@ -77,6 +77,9 @@ Please note that, the Mask R-CNN backbone does not support cuda10.0 and gcc vers
 ## Models
 Models are saved under *checkpoint/*. You can download our trained model from [here](https://www.dropbox.com/s/yjcg6s57n581sk0/checkpoint.zip?dl=0), and put it under *checkpoint/* if you want to fine-tune it or run inferences.
 
+## Plane representation
+In this project, plane parameters are of absolute scale (in terms of meters). Each plane has three parameters, which equal to plane_normal * plane_offset. Suppose plane_normal is (a, b, c) and plane_offset is d, every point (X, Y, Z) on the plane satisfies, aX + bY + cZ = d. Then plane parameters are (a, b, c)*d. Since plane normal is a unit vector, we can extract plane_normal and plane_offset from their multiplication.
+ 
 ## Run the inference code with an example
 ```bash
 python evaluate.py --methods=f --suffix=warping_refine --dataset=inference --customDataFolder=example_images
@@ -84,7 +87,7 @@ python evaluate.py --methods=f --suffix=warping_refine --dataset=inference --cus
 
 Results are saved under "test/inference/". Besides visualizations, plane parameters (#planes x 3) are saved in "\*_plane_parameters_0.npy" and plane masks (#planes x 480 x 640) are saved in "\*_plane_masks_0.npy".
 
-## Using custom data
+## Run the inference code with custom data
 Please put your images (*.png* or *.jpg* files), and camera intrinsics under a folder ($YOUR_IMAGE_FOLDER). The camera parameters should be put under a *.txt* file with 6 values (fx, fy, cx, cy, image_width, image_height) separately by a space. If the camera intrinsics is the same for all images, please put these parameters in *camera.txt*. Otherwise, please add a separate intrinsics file for each image, and name it the same with the image (changing the file extension to *.txt*). And then run:
 ```bash
 python evaluate.py --methods=f --suffix=warping_refine --dataset=inference --customDataFolder=$YOUR_IMAGE_FOLDER
@@ -101,6 +104,9 @@ After the above steps, ground truth plane annotations are stored under "$ROOT_FO
 To generate such training data on your own, please refer to *data_prep/parse.py*. Please refer to the README under *data_prep/* for compilation.
 
 Besides scene-specific annotation under each scene folder, please download global metadata from [here](https://www.dropbox.com/s/v7qb7hwas1j766r/metadata.zip?dl=0), and unzip it to "$ROOT_FOLDER". Metadata includes the normal anchors (anchor_planes_N.npy) and invalid image indices caused by tracking issues (invalid_indices_*.txt). 
+
+### Training with custom data
+To train on custom data, you need a list of planes, where each plane is represented using three parameters (as explained above) and a 2D binary mask. In our implementation, we use one 2D segmentation map where pixels with value *i* belong to the *i*th plane in the list. The easiest way is to replace the ScanNetScene class with something interacts with your custom data. Note that, the plane_info, which stores some semantic information and global plane index in the scene, is not used in this project. The code is misleading as global plane indices are read from plane_info [here](https://github.com/NVlabs/planercnn/blob/01e03fe5a97b7afc4c5c4c3090ddc9da41c071bd/datasets/plane_stereo_dataset.py#L194), but they are used only for debugging purposes.
 
 ### Training script
 ```bash
