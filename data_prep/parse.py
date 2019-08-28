@@ -245,7 +245,7 @@ def mergePlanes(points, planes, planePointIndices, planeSegments, segmentNeighbo
 
 def readMesh(scene_id):
 
-    filename = ROOT_FOLDER + scene_id + '/' + scene_id + '.aggregation.json'
+    filename = ROOT_FOLDER + '/' + scene_id + '/' + scene_id + '.aggregation.json'
     data = json.load(open(filename, 'r'))
     aggregation = np.array(data['segGroups'])
 
