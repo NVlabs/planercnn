@@ -275,7 +275,7 @@ def readMesh(scene_id):
 
     groupSegments = []
     groupLabels = []
-    for segmentIndex in xrange(len(aggregation)):
+    for segmentIndex in range(len(aggregation)):
         groupSegments.append(aggregation[segmentIndex]['segments'])
         groupLabels.append(aggregation[segmentIndex]['label'])
         continue
