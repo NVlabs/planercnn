@@ -174,7 +174,7 @@ def evaluateMasksTensor(predMasks, gtMasks, valid_mask, printInfo=False):
     voi = H_1 + H_2 - 2 * MI
 
     IOU = intersection / torch.clamp(union, min=1)
-    SC = ((IOU.max(-1)[0] * torch.clamp(gtMasks.sum(-1).sum(-1), min=1e-4)).sum() / N + (IOU.max(0)[0] * torch.clamp(predMasks.sum(-1).sum(-1), min=1e-4)).sum() / N) / 2
+    SC = ((IOU.max(-1)[0] * torch.clamp((gtMasks * valid_mask).sum(-1).sum(-1), min=1e-4)).sum() / N + (IOU.max(0)[0] * torch.clamp((predMasks * valid_mask).sum(-1).sum(-1), min=1e-4)).sum() / N) / 2
     info = [RI, voi, SC]
     if printInfo:
         print('mask statistics', info)
