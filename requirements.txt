@@ -1,6 +1,18 @@
-cffi==1.11.5
-numpy==1.15.4
-opencv-python==3.4.4.19
-scikit-image==0.14.1
-torch==0.4.1
-tqdm==4.28.1
+# cffi==1.11.5
+# numpy==1.15.4
+# opencv-python==3.4.4.19
+# scikit-image==0.14.1
+# torch==0.4.1
+# tqdm==4.28.1
+
+# current version
+# pip
+cffi==1.15.0
+numpy==1.19.2
+opencv-python==4.5.5.62
+scikit-image==0.19.1
+tqdm==4.62.3
+h5py==3.6.0
+
+# conda
+pytorch==1.10.1 # py3.8_cuda11.3_cudnn8.2.0_0
